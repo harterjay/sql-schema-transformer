@@ -3,4 +3,5 @@ uvicorn
 pandas
 openpyxl
 httpx
-python-dotenv 
+python-dotenv
+streamlit 
