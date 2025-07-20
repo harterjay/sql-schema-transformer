@@ -63,7 +63,15 @@ st.set_page_config(page_title="SQL Schema Transformer", layout="centered")
 st.title("SQL Schema Transformer")
 st.write("Upload your source and target schema Excel files. The app will generate a SQL SELECT statement to transform and join the source schemas to produce the target schema (formatted for Microsoft SQL Server).\n\n**Excel files must have columns:** `table`, `column`, `type`, `description`. You may upload multiple source files (e.g., transactional, master data, etc.). Optionally, you can upload a Join Key table (Excel) with columns: `left_table`, `left_field`, `right_table`, `right_field` to specify join relationships.")
 
-# Create the form for file uploads
+# Place these before the form
+unmapped_option = st.radio(
+    "What should the SQL output for unmapped fields?",
+    ("Null", "NO_VALUE", "Custom value")
+)
+custom_value = ""
+if unmapped_option == "Custom value":
+    custom_value = st.text_input("Enter custom value (max 10 characters):", max_chars=10)
+
 with st.form("schema_form"):
     source_files = st.file_uploader("Source schema Excel files (you can select multiple)", type=["xlsx"], accept_multiple_files=True)
     target_file = st.file_uploader("Target schema Excel file", type=["xlsx"])
@@ -96,18 +104,17 @@ if submitted:
                     raise ValueError("Join Key table must have columns: left_table, left_field, right_table, right_field")
                 join_keys_text = join_keys_to_text(join_keys_df)
             # Build prompt
-            prompt = f"""Given the following source schemas (from different systems):
-{sources_text}
-
-And the following target schema:
-<target>
-{target_text}
-</target>
-"""
+            if unmapped_option == "Null":
+                unmapped_instruction = "If a target field cannot be mapped to any source field, output NULL for that field in the SELECT statement."
+            elif unmapped_option == "NO_VALUE":
+                unmapped_instruction = "If a target field cannot be mapped to any source field, output the string literal 'NO_VALUE' for that field in the SELECT statement."
+            else:
+                unmapped_instruction = f"If a target field cannot be mapped to any source field, output the string literal '{custom_value}' for that field in the SELECT statement."
+            prompt = f"""Given the following source schemas (from different systems):\n{sources_text}\n\nAnd the following target schema:\n<target>\n{target_text}\n</target>\n"""
             if join_keys_text:
                 prompt += f"\nUse the following join keys when joining tables (these are the correct join relationships):\n{join_keys_text}\n"
+            prompt += f"\n{unmapped_instruction}\n"
             prompt += """
-If a target field cannot be mapped to any source field, output the string literal 'NO_VALUE' (not NULL) for that field in the SELECT statement.
 Write ONLY the SQL SELECT statement (no explanation, no comments, no description) that transforms and joins the appropriate source tables to produce the target schema. Use field names and descriptions to determine which source table/column to use for each target field. Format the SQL as a valid Microsoft SQL Server (T-SQL) script, using proper indentation, line breaks, and JOINs as needed. Do not include any explanation or commentary—output only the SQL code."""
             with st.spinner("Generating SQL with Claude..."):
                 sql = call_claude(prompt)
