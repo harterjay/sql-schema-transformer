@@ -3,14 +3,204 @@ import pandas as pd
 import os
 import httpx
 from dotenv import load_dotenv
+from supabase import create_client, Client
+from io import BytesIO
 
 # Load environment variables
 load_dotenv()
 
+# --- Supabase Setup ---
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# --- Auth Helpers ---
+if "user" not in st.session_state:
+    st.session_state["user"] = None
+
+# --- Freemium Logic Helpers ---
+def insert_user_if_new(user):
+    # Insert user into 'users' table if not exists
+    res = supabase.table("users").select("id").eq("id", user.id).execute()
+    if not res.data:
+        supabase.table("users").insert({
+            "id": user.id,
+            "email": user.email,
+            "is_paid": False
+        }).execute()
+
+def fetch_user_status(user):
+    res = supabase.table("users").select("is_paid, signup_date").eq("id", user.id).single().execute()
+    if res.data:
+        st.session_state["is_paid"] = res.data["is_paid"]
+        st.session_state["signup_date"] = pd.to_datetime(res.data["signup_date"])
+    else:
+        st.session_state["is_paid"] = False
+        st.session_state["signup_date"] = pd.Timestamp.now()
+
+def get_sql_generations_today(user):
+    today = pd.Timestamp.now().date()
+    res = supabase.table("usage_logs").select("timestamp").eq("user_id", user.id).eq("action", "generate_sql").execute()
+    if not res.data:
+        return 0
+    df = pd.DataFrame(res.data)
+    df["date"] = pd.to_datetime(df["timestamp"]).dt.date
+    return (df["date"] == today).sum()
+
+def get_trial_days_left(signup_date):
+    days_used = (pd.Timestamp.now().date() - signup_date.date()).days
+    return max(0, 10 - days_used)
+
+# --- Update show_login to insert user on signup and fetch status on login ---
+def show_login():
+    if "auth_mode" not in st.session_state:
+        st.session_state["auth_mode"] = None
+
+    if st.session_state["auth_mode"] is None:
+        st.title("SQL Schema Transformer")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Login"):
+                st.session_state["auth_mode"] = "login"
+                st.rerun()
+        with col2:
+            if st.button("Sign Up"):
+                st.session_state["auth_mode"] = "signup"
+                st.rerun()
+        st.stop()
+
+    if st.session_state["auth_mode"] == "login":
+        st.title("SQL Schema Transformer")
+        with st.form("login_form"):
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            login = st.form_submit_button("Login")
+            if login:
+                if not email or not password:
+                    st.error("Please enter both email and password.")
+                else:
+                    res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                    if hasattr(res, 'user') and res.user:
+                        st.session_state["user"] = res.user
+                        fetch_user_status(res.user)
+                        st.success("Logged in!")
+                        st.session_state["auth_mode"] = None
+                        st.rerun()
+                    else:
+                        st.error("Login failed. Please check your credentials.")
+        if st.button("Back"):
+            st.session_state["auth_mode"] = None
+            st.rerun()
+
+    if st.session_state["auth_mode"] == "signup":
+        st.title("SQL Schema Transformer")
+        with st.form("signup_form"):
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            confirm_password = st.text_input("Confirm Password", type="password")
+            signup = st.form_submit_button("Sign Up")
+            if signup:
+                if not email or not password or not confirm_password:
+                    st.error("Please fill in all fields.")
+                elif password != confirm_password:
+                    st.error("Passwords do not match.")
+                else:
+                    res = supabase.auth.sign_up({"email": email, "password": password})
+                    if hasattr(res, 'user') and res.user:
+                        insert_user_if_new(res.user)
+                        fetch_user_status(res.user)
+                        st.success("Check your email to confirm your account.")
+                        st.session_state["auth_mode"] = "login"
+                        st.rerun()
+                    else:
+                        st.error("Signup failed. Email may already be registered.")
+        if st.button("Back"):
+            st.session_state["auth_mode"] = None
+            st.rerun()
+
+def show_logout():
+    if st.button("Logout"):
+        st.session_state["user"] = None
+        st.rerun()
+
+# Add sidebar navigation
+page = st.sidebar.selectbox("Page", ["Main App", "Usage Analytics"])
+
+# Admin emails for analytics access
+admin_emails = ["harterjay@gmail.com"]  # Replace with your email
+
+def get_usage_stats():
+    res = supabase.table("usage_logs").select("*").execute()
+    df = pd.DataFrame(res.data)
+    return df
+
+def show_analytics():
+    st.header("Usage Analytics")
+    df = get_usage_stats()
+    if df.empty:
+        st.info("No usage data yet.")
+        return
+    st.write("All usage logs:", df)
+    st.write("SQL generations per user:")
+    st.bar_chart(df.groupby("email").size())
+    st.write("SQL generations over time:")
+    df['date'] = pd.to_datetime(df['timestamp']).dt.date
+    st.line_chart(df.groupby('date').size())
+
+# --- Page Routing ---
+# --- After login, enforce freemium limits before showing main app ---
+if not st.session_state["user"]:
+    show_login()
+    st.stop()
+
+fetch_user_status(st.session_state["user"])
+
+is_paid = st.session_state.get("is_paid", False)
+signup_date = st.session_state.get("signup_date", pd.Timestamp.now())
+trial_days_left = get_trial_days_left(signup_date)
+generations_today = get_sql_generations_today(st.session_state["user"])
+
+# Show usage/trial info
+if not is_paid:
+    st.info(f"Trial days left: {trial_days_left} | SQL generations today: {generations_today}/2 | Upgrade for unlimited access!")
+    if trial_days_left == 0:
+        st.error("Your 10-day trial has expired. Please upgrade to continue using the app.")
+        st.stop()
+    if generations_today >= 2:
+        st.error("You have reached your daily limit of 2 SQL generations. Please try again tomorrow or upgrade for unlimited access.")
+        st.stop()
+
+if page == "Usage Analytics":
+    st.write("Logged in as:", st.session_state["user"].email)
+    user_email = st.session_state["user"].email.strip().lower()
+    admin_emails_normalized = [e.strip().lower() for e in admin_emails]
+    if user_email in admin_emails_normalized:
+        show_analytics()
+    else:
+        st.warning("You do not have access to this page.")
+    st.stop()
+
+# --- Main App ---
+show_logout()
+st.write(f"Welcome, {st.session_state['user'].email}!")
+
 # --- Helper functions (copied from main.py) ---
 def parse_schema(file) -> pd.DataFrame:
     """Parse an Excel schema file and return a DataFrame."""
-    df = pd.read_excel(file)
+    try:
+        # If file is bytes, wrap in BytesIO
+        if isinstance(file, bytes):
+            file = BytesIO(file)
+        # st.write("File object type:", type(file))
+        # st.write("File name:", getattr(file, 'name', None))
+        if hasattr(file, 'getvalue'):
+            pass
+            # st.write("First 20 bytes:", file.getvalue()[:20])
+        file.seek(0)
+        df = pd.read_excel(file)
+    except Exception as e:
+        # st.write("Exception details:", str(e))
+        raise ValueError("The uploaded file is not a valid Excel (.xlsx) file. Please check your file and try again.") from e
     df.columns = [c.lower() for c in df.columns]
     required_cols = {"table", "column", "type", "description"}
     if not required_cols.issubset(df.columns):
@@ -73,21 +263,34 @@ if unmapped_option == "Custom value":
     custom_value = st.text_input("Enter custom value (max 10 characters):", max_chars=10)
 
 with st.form("schema_form"):
-    source_files = st.file_uploader("Source schema Excel files (you can select multiple)", type=["xlsx"], accept_multiple_files=True)
+    # Enforce source file limit for free users
+    if not is_paid:
+        st.caption("Free users can only upload 1 source file. Upgrade for more.")
+        source_files = st.file_uploader("Source schema Excel files (1 file for free users)", type=["xlsx"], accept_multiple_files=False)
+    else:
+        source_files = st.file_uploader("Source schema Excel files (you can select multiple)", type=["xlsx"], accept_multiple_files=True)
     target_file = st.file_uploader("Target schema Excel file", type=["xlsx"])
     join_key_file = st.file_uploader("(Optional) Join Key table (Excel, columns: left_table, left_field, right_table, right_field)", type=["xlsx"])
     submitted = st.form_submit_button("Generate SQL")
 
 if submitted:
-    if not source_files or not target_file:
-        st.error("Please upload at least one source schema file and one target schema file.")
+    if not source_files:
+        st.error("Please upload at least one source schema file.")
+        st.stop()
+    if not target_file:
+        st.error("Please upload a target schema file.")
+        st.stop()
     else:
         try:
             # Parse all source files and keep their names
             source_schemas = []
-            for file in source_files:
-                df = parse_schema(file)
-                source_schemas.append((file.name, df))
+            if isinstance(source_files, list):
+                for file in source_files:
+                    df = parse_schema(file)
+                    source_schemas.append((file.name, df))
+            else:
+                df = parse_schema(source_files)
+                source_schemas.append(("source_file", df))
             target_df = parse_schema(target_file)
             # Build source schemas text
             sources_text = "\n\n".join(
@@ -120,5 +323,21 @@ Write ONLY the SQL SELECT statement (no explanation, no comments, no description
                 sql = call_claude(prompt)
             st.success("SQL generated!")
             st.code(sql, language="sql")
+            # After successful SQL generation
+            user = st.session_state["user"]
+            if isinstance(source_files, list):
+                num_source_files = len(source_files)
+            else:
+                num_source_files = 1 if source_files else 0
+            supabase.table("usage_logs").insert({
+                "user_id": user.id,
+                "email": user.email,
+                "action": "generate_sql",
+                "details": {
+                    "num_source_files": num_source_files,
+                    "target_fields": len(target_df.columns),
+                    # Add more details as needed
+                }
+            }).execute()
         except Exception as e:
             st.error(f"Error: {e}") 
