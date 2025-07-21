@@ -124,7 +124,7 @@ def show_logout():
         st.rerun()
 
 # Add sidebar navigation
-page = st.sidebar.selectbox("Page", ["Main App", "Usage Analytics"])
+page = st.sidebar.selectbox("Page", ["Main App", "Usage Analytics", "Future Improvements"])
 
 # Admin emails for analytics access
 admin_emails = ["harterjay@gmail.com"]  # Replace with your email
@@ -146,6 +146,31 @@ def show_analytics():
     st.write("SQL generations over time:")
     df['date'] = pd.to_datetime(df['timestamp']).dt.date
     st.line_chart(df.groupby('date').size())
+
+def show_improvements():
+    st.header("Future Improvements")
+    # Improvement submission form
+    with st.form("add_improvement_form"):
+        name = st.text_input("Improvement Name")
+        description = st.text_area("Description")
+        submitted = st.form_submit_button("Add Improvement Idea")
+        if submitted:
+            if not name:
+                st.error("Name is required.")
+            else:
+                supabase.table("improvements").insert({
+                    "name": name,
+                    "description": description,
+                }).execute()
+                st.success("Improvement idea added!")
+    # List all improvements
+    res = supabase.table("improvements").select("*").order("date_entered", desc=True).execute()
+    df = pd.DataFrame(res.data)
+    if not df.empty:
+        df = df.rename(columns={"date_entered": "Date Entered"})
+        st.dataframe(df[["name", "description", "status", "Date Entered"]])
+    else:
+        st.info("No improvement ideas yet.")
 
 # --- Page Routing ---
 # --- After login, enforce freemium limits before showing main app ---
@@ -176,6 +201,15 @@ if page == "Usage Analytics":
     admin_emails_normalized = [e.strip().lower() for e in admin_emails]
     if user_email in admin_emails_normalized:
         show_analytics()
+    else:
+        st.warning("You do not have access to this page.")
+    st.stop()
+
+if page == "Future Improvements":
+    user_email = st.session_state["user"].email.strip().lower()
+    admin_emails_normalized = [e.strip().lower() for e in admin_emails]
+    if user_email in admin_emails_normalized:
+        show_improvements()
     else:
         st.warning("You do not have access to this page.")
     st.stop()
