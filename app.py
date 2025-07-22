@@ -268,9 +268,8 @@ generations_today = get_sql_generations_today(st.session_state["user"])
 # Show usage/trial info and upgrade button for free users
 if not is_paid:
     st.info(f"Trial days left: {trial_days_left} | SQL generations today: {generations_today}/2 | Upgrade for unlimited access!")
-    if st.button("Upgrade to Pro"):
-        checkout_url = create_checkout_session(st.session_state["user"].email)
-        st.markdown(f"[Click here to complete your purchase]({checkout_url})")
+    checkout_url = create_checkout_session(st.session_state["user"].email)
+    st.link_button("Upgrade to Pro", checkout_url)
     if trial_days_left == 0:
         st.error("Your 10-day trial has expired. Please upgrade to continue using the app.")
         st.stop()
