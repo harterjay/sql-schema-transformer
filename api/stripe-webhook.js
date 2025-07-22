@@ -4,13 +4,25 @@ import { createClient } from '@supabase/supabase-js';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-04-10' });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).send('Method Not Allowed');
   }
 
   const sig = req.headers['stripe-signature'];
-  const body = req.body;
+  
+  // Get raw body
+  const chunks = [];
+  req.on('data', chunk => chunks.push(chunk));
+  const body = await new Promise((resolve) => {
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+  });
 
   let event;
   try {
