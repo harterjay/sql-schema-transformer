@@ -5,6 +5,9 @@ import httpx
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from io import BytesIO
+import stripe
+
+stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
 
 # Load environment variables
 load_dotenv()
@@ -50,6 +53,20 @@ def get_sql_generations_today(user):
 def get_trial_days_left(signup_date):
     days_used = (pd.Timestamp.now().date() - signup_date.date()).days
     return max(0, 10 - days_used)
+
+def create_checkout_session(user_email):
+    session = stripe.checkout.Session.create(
+        payment_method_types=['card'],
+        line_items=[{
+            'price': st.secrets["STRIPE_PRICE_ID"],
+            'quantity': 1,
+        }],
+        mode='subscription',
+        customer_email=user_email,
+        success_url=f'https://sql-schema-transformer-cwjjqe7eonrs2qsi96bn2u.streamlit.app?session_id={{CHECKOUT_SESSION_ID}}&email={user_email}',
+        cancel_url='https://sql-schema-transformer-cwjjqe7eonrs2qsi96bn2u.streamlit.app',
+    )
+    return session.url
 
 # --- Update show_login to insert user on signup and fetch status on login ---
 def show_login():
@@ -185,9 +202,12 @@ signup_date = st.session_state.get("signup_date", pd.Timestamp.now())
 trial_days_left = get_trial_days_left(signup_date)
 generations_today = get_sql_generations_today(st.session_state["user"])
 
-# Show usage/trial info
+# Show usage/trial info and upgrade button for free users
 if not is_paid:
     st.info(f"Trial days left: {trial_days_left} | SQL generations today: {generations_today}/2 | Upgrade for unlimited access!")
+    if st.button("Upgrade to Pro"):
+        checkout_url = create_checkout_session(st.session_state["user"].email)
+        st.markdown(f"[Click here to complete your purchase]({checkout_url})")
     if trial_days_left == 0:
         st.error("Your 10-day trial has expired. Please upgrade to continue using the app.")
         st.stop()
@@ -214,75 +234,21 @@ if page == "Future Improvements":
         st.warning("You do not have access to this page.")
     st.stop()
 
-# --- Main App ---
-show_logout()
-st.write(f"Welcome, {st.session_state['user'].email}!")
-
-# --- Helper functions (copied from main.py) ---
-def parse_schema(file) -> pd.DataFrame:
-    """Parse an Excel schema file and return a DataFrame."""
+# After login, add this to handle Stripe payment success
+params = st.query_params
+if "session_id" in params and "email" in params:
+    session_id = params["session_id"][0]
+    email = params["email"][0]
     try:
-        # If file is bytes, wrap in BytesIO
-        if isinstance(file, bytes):
-            file = BytesIO(file)
-        # st.write("File object type:", type(file))
-        # st.write("File name:", getattr(file, 'name', None))
-        if hasattr(file, 'getvalue'):
-            pass
-            # st.write("First 20 bytes:", file.getvalue()[:20])
-        file.seek(0)
-        df = pd.read_excel(file)
+        session = stripe.checkout.Session.retrieve(session_id)
+        if session.payment_status == "paid":
+            supabase.table("users").update({"is_paid": True}).eq("email", email).execute()
+            st.success("Payment successful! You are now a Pro user.")
+            st.rerun()
     except Exception as e:
-        # st.write("Exception details:", str(e))
-        raise ValueError("The uploaded file is not a valid Excel (.xlsx) file. Please check your file and try again.") from e
-    df.columns = [c.lower() for c in df.columns]
-    required_cols = {"table", "column", "type", "description"}
-    if not required_cols.issubset(df.columns):
-        raise ValueError("Missing required columns in schema file.")
-    return df
-
-def schema_to_text(df: pd.DataFrame, source_name: str | None = None) -> str:
-    """Convert schema DataFrame to text format."""
-    prefix = f"[{source_name}]\n" if source_name else ""
-    return prefix + "\n".join(
-        f"{row['table']}.{row['column']} {row['type']} -- {row['description']}"
-        for _, row in df.iterrows()
-    )
-
-def join_keys_to_text(df: pd.DataFrame) -> str:
-    """Convert join keys DataFrame to text format."""
-    # Assume columns: left_table, left_field, right_table, right_field
-    return "\n".join(
-        f"{row['left_table']}.{row['left_field']} = {row['right_table']}.{row['right_field']}" for _, row in df.iterrows()
-    )
-
-def call_claude(prompt: str) -> str:
-    """Call Claude API to generate SQL based on the prompt."""
-    # Environment variable loaded from .env file
-    CLAUDE_API_KEY: str = os.getenv("CLAUDE_API_KEY") or ""
-    if not CLAUDE_API_KEY:
-        raise ValueError("CLAUDE_API_KEY environment variable not found. Please create a .env file with your Claude API key.")
-    
-    CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
-    headers = {
-        "x-api-key": CLAUDE_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json"
-    }
-    data = {
-        "model": "claude-3-5-sonnet-20241022",
-        "max_tokens": 4096,  # or higher, if supported
-        "messages": [
-            {"role": "user", "content": prompt}
-        ]
-    }
-    response = httpx.post(CLAUDE_API_URL, headers=headers, json=data, timeout=60)
-    response.raise_for_status()
-    response_data = response.json()
-    return response_data["content"][0]["text"]
+        st.error(f"Error verifying payment: {e}")
 
 # --- Streamlit UI ---
-# Configure page settings
 st.set_page_config(page_title="SQL Schema Transformer", layout="centered")
 st.title("SQL Schema Transformer")
 st.write("Upload your source and target schema Excel files. The app will generate a SQL SELECT statement to transform and join the source schemas to produce the target schema (formatted for Microsoft SQL Server).\n\n**Excel files must have columns:** `table`, `column`, `type`, `description`. You may upload multiple source files (e.g., transactional, master data, etc.). Optionally, you can upload a Join Key table (Excel) with columns: `left_table`, `left_field`, `right_table`, `right_field` to specify join relationships.")
@@ -374,4 +340,67 @@ Write ONLY the SQL SELECT statement (no explanation, no comments, no description
                 }
             }).execute()
         except Exception as e:
-            st.error(f"Error: {e}") 
+            st.error(f"Error: {e}")
+
+# --- Helper functions (copied from main.py) ---
+def parse_schema(file) -> pd.DataFrame:
+    """Parse an Excel schema file and return a DataFrame."""
+    try:
+        # If file is bytes, wrap in BytesIO
+        if isinstance(file, bytes):
+            file = BytesIO(file)
+        # st.write("File object type:", type(file))
+        # st.write("File name:", getattr(file, 'name', None))
+        if hasattr(file, 'getvalue'):
+            pass
+            # st.write("First 20 bytes:", file.getvalue()[:20])
+        file.seek(0)
+        df = pd.read_excel(file)
+    except Exception as e:
+        # st.write("Exception details:", str(e))
+        raise ValueError("The uploaded file is not a valid Excel (.xlsx) file. Please check your file and try again.") from e
+    df.columns = [c.lower() for c in df.columns]
+    required_cols = {"table", "column", "type", "description"}
+    if not required_cols.issubset(df.columns):
+        raise ValueError("Missing required columns in schema file.")
+    return df
+
+def schema_to_text(df: pd.DataFrame, source_name: str | None = None) -> str:
+    """Convert schema DataFrame to text format."""
+    prefix = f"[{source_name}]\n" if source_name else ""
+    return prefix + "\n".join(
+        f"{row['table']}.{row['column']} {row['type']} -- {row['description']}"
+        for _, row in df.iterrows()
+    )
+
+def join_keys_to_text(df: pd.DataFrame) -> str:
+    """Convert join keys DataFrame to text format."""
+    # Assume columns: left_table, left_field, right_table, right_field
+    return "\n".join(
+        f"{row['left_table']}.{row['left_field']} = {row['right_table']}.{row['right_field']}" for _, row in df.iterrows()
+    )
+
+def call_claude(prompt: str) -> str:
+    """Call Claude API to generate SQL based on the prompt."""
+    # Environment variable loaded from .env file
+    CLAUDE_API_KEY: str = os.getenv("CLAUDE_API_KEY") or ""
+    if not CLAUDE_API_KEY:
+        raise ValueError("CLAUDE_API_KEY environment variable not found. Please create a .env file with your Claude API key.")
+    
+    CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
+    headers = {
+        "x-api-key": CLAUDE_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
+    }
+    data = {
+        "model": "claude-3-5-sonnet-20241022",
+        "max_tokens": 4096,  # or higher, if supported
+        "messages": [
+            {"role": "user", "content": prompt}
+        ]
+    }
+    response = httpx.post(CLAUDE_API_URL, headers=headers, json=data, timeout=60)
+    response.raise_for_status()
+    response_data = response.json()
+    return response_data["content"][0]["text"]
