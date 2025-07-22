@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   }
 
   const sig = req.headers['stripe-signature'];
-  const body = await req.text();
+  const body = req.body;
 
   let event;
   try {
