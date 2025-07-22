@@ -17,6 +17,69 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# --- Helper functions (moved to top) ---
+def parse_schema(file) -> pd.DataFrame:
+    """Parse an Excel schema file and return a DataFrame."""
+    try:
+        # If file is bytes, wrap in BytesIO
+        if isinstance(file, bytes):
+            file = BytesIO(file)
+        # st.write("File object type:", type(file))
+        # st.write("File name:", getattr(file, 'name', None))
+        if hasattr(file, 'getvalue'):
+            pass
+            # st.write("First 20 bytes:", file.getvalue()[:20])
+        file.seek(0)
+        df = pd.read_excel(file)
+    except Exception as e:
+        # st.write("Exception details:", str(e))
+        raise ValueError("The uploaded file is not a valid Excel (.xlsx) file. Please check your file and try again.") from e
+    df.columns = [c.lower() for c in df.columns]
+    required_cols = {"table", "column", "type", "description"}
+    if not required_cols.issubset(df.columns):
+        raise ValueError("Missing required columns in schema file.")
+    return df
+
+def schema_to_text(df: pd.DataFrame, source_name: str | None = None) -> str:
+    """Convert schema DataFrame to text format."""
+    prefix = f"[{source_name}]\n" if source_name else ""
+    return prefix + "\n".join(
+        f"{row['table']}.{row['column']} {row['type']} -- {row['description']}"
+        for _, row in df.iterrows()
+    )
+
+def join_keys_to_text(df: pd.DataFrame) -> str:
+    """Convert join keys DataFrame to text format."""
+    # Assume columns: left_table, left_field, right_table, right_field
+    return "\n".join(
+        f"{row['left_table']}.{row['left_field']} = {row['right_table']}.{row['right_field']}" for _, row in df.iterrows()
+    )
+
+def call_claude(prompt: str) -> str:
+    """Call Claude API to generate SQL based on the prompt."""
+    # Environment variable loaded from .env file
+    CLAUDE_API_KEY: str = os.getenv("CLAUDE_API_KEY") or ""
+    if not CLAUDE_API_KEY:
+        raise ValueError("CLAUDE_API_KEY environment variable not found. Please create a .env file with your Claude API key.")
+    
+    CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
+    headers = {
+        "x-api-key": CLAUDE_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
+    }
+    data = {
+        "model": "claude-3-5-sonnet-20241022",
+        "max_tokens": 4096,  # or higher, if supported
+        "messages": [
+            {"role": "user", "content": prompt}
+        ]
+    }
+    response = httpx.post(CLAUDE_API_URL, headers=headers, json=data, timeout=60)
+    response.raise_for_status()
+    response_data = response.json()
+    return response_data["content"][0]["text"]
+
 # --- Auth Helpers ---
 if "user" not in st.session_state:
     st.session_state["user"] = None
@@ -341,66 +404,3 @@ Write ONLY the SQL SELECT statement (no explanation, no comments, no description
             }).execute()
         except Exception as e:
             st.error(f"Error: {e}")
-
-# --- Helper functions (copied from main.py) ---
-def parse_schema(file) -> pd.DataFrame:
-    """Parse an Excel schema file and return a DataFrame."""
-    try:
-        # If file is bytes, wrap in BytesIO
-        if isinstance(file, bytes):
-            file = BytesIO(file)
-        # st.write("File object type:", type(file))
-        # st.write("File name:", getattr(file, 'name', None))
-        if hasattr(file, 'getvalue'):
-            pass
-            # st.write("First 20 bytes:", file.getvalue()[:20])
-        file.seek(0)
-        df = pd.read_excel(file)
-    except Exception as e:
-        # st.write("Exception details:", str(e))
-        raise ValueError("The uploaded file is not a valid Excel (.xlsx) file. Please check your file and try again.") from e
-    df.columns = [c.lower() for c in df.columns]
-    required_cols = {"table", "column", "type", "description"}
-    if not required_cols.issubset(df.columns):
-        raise ValueError("Missing required columns in schema file.")
-    return df
-
-def schema_to_text(df: pd.DataFrame, source_name: str | None = None) -> str:
-    """Convert schema DataFrame to text format."""
-    prefix = f"[{source_name}]\n" if source_name else ""
-    return prefix + "\n".join(
-        f"{row['table']}.{row['column']} {row['type']} -- {row['description']}"
-        for _, row in df.iterrows()
-    )
-
-def join_keys_to_text(df: pd.DataFrame) -> str:
-    """Convert join keys DataFrame to text format."""
-    # Assume columns: left_table, left_field, right_table, right_field
-    return "\n".join(
-        f"{row['left_table']}.{row['left_field']} = {row['right_table']}.{row['right_field']}" for _, row in df.iterrows()
-    )
-
-def call_claude(prompt: str) -> str:
-    """Call Claude API to generate SQL based on the prompt."""
-    # Environment variable loaded from .env file
-    CLAUDE_API_KEY: str = os.getenv("CLAUDE_API_KEY") or ""
-    if not CLAUDE_API_KEY:
-        raise ValueError("CLAUDE_API_KEY environment variable not found. Please create a .env file with your Claude API key.")
-    
-    CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
-    headers = {
-        "x-api-key": CLAUDE_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json"
-    }
-    data = {
-        "model": "claude-3-5-sonnet-20241022",
-        "max_tokens": 4096,  # or higher, if supported
-        "messages": [
-            {"role": "user", "content": prompt}
-        ]
-    }
-    response = httpx.post(CLAUDE_API_URL, headers=headers, json=data, timeout=60)
-    response.raise_for_status()
-    response_data = response.json()
-    return response_data["content"][0]["text"]
