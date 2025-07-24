@@ -275,6 +275,9 @@ def show_logout():
         st.session_state["user"] = None
         st.rerun()
 
+# Admin emails for analytics access
+admin_emails = ["harterjay@gmail.com"]  # Replace with your email
+
 # Add sidebar navigation
 st.sidebar.title("Navigation")
 
@@ -305,9 +308,6 @@ if is_admin:
 # Initialize current page if not set
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "main"
-
-# Admin emails for analytics access
-admin_emails = ["harterjay@gmail.com"]  # Replace with your email
 
 def get_usage_stats():
     res = supabase.table("usage_logs").select("*").execute()
