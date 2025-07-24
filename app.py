@@ -287,7 +287,7 @@ def show_analytics():
 def show_improvements():
     st.header("Future Improvements")
     # Improvement submission form
-    with st.form("add_improvement_form"):
+    with st.form("add_improvement_form", clear_on_submit=True):
         name = st.text_input("Improvement Name")
         description = st.text_area("Description")
         submitted = st.form_submit_button("Add Improvement Idea")
@@ -300,12 +300,27 @@ def show_improvements():
                     "description": description,
                 }).execute()
                 st.success("Improvement idea added!")
-    # List all improvements
+                st.rerun()
+    
+    # List all improvements with editable table
     res = supabase.table("improvements").select("*").order("date_entered", desc=True).execute()
     df = pd.DataFrame(res.data)
     if not df.empty:
+        # Hide ID field and rename date column
         df = df.rename(columns={"date_entered": "Date Entered"})
-        st.dataframe(df[["name", "description", "status", "Date Entered"]])
+        display_df = df[["name", "description", "status", "Date Entered"]]
+        
+        # Use full width and make editable
+        edited_df = st.dataframe(
+            display_df,
+            use_container_width=True,  # Full width
+            num_rows="dynamic",  # Allow editing
+            key="improvements_table"
+        )
+        
+        # Handle edits if any changes were made
+        if edited_df is not None and not edited_df.equals(display_df):
+            st.info("Changes detected! Save functionality can be added here.")
     else:
         st.info("No improvement ideas yet.")
     
