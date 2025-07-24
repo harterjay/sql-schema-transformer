@@ -428,9 +428,19 @@ if "session_id" in params and "email" in params:
 # --- Streamlit UI ---
 st.set_page_config(
     page_title="SQL Schema Transformer", 
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Hide GitHub link in top right
+st.markdown("""
+<style>
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+.stDeployButton {display: none;}
+</style>
+""", unsafe_allow_html=True)
 
 # Show Riptonic logo at bottom right of all pages
 show_riptonic_logo()
