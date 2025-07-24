@@ -310,17 +310,12 @@ def show_improvements():
         df = df.rename(columns={"date_entered": "Date Entered"})
         display_df = df[["name", "description", "status", "Date Entered"]]
         
-        # Use full width and make editable
-        edited_df = st.dataframe(
+        # Use full width table
+        st.dataframe(
             display_df,
             use_container_width=True,  # Full width
-            num_rows="dynamic",  # Allow editing
             key="improvements_table"
         )
-        
-        # Handle edits if any changes were made
-        if edited_df is not None and not edited_df.equals(display_df):
-            st.info("Changes detected! Save functionality can be added here.")
     else:
         st.info("No improvement ideas yet.")
     
