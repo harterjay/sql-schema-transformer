@@ -435,7 +435,7 @@ generations_today = get_sql_generations_today(st.session_state["user"])
 if st.session_state["user"]:
     user_email = st.session_state["user"].email
     if is_paid:
-        st.sidebar.markdown(f"**Logged in as:** {user_email} <span style='color: gold; font-weight: bold;'>PRO</span>", unsafe_allow_html=True)
+        st.sidebar.markdown(f"**Logged in as:** {user_email} <span style='color: #FFD700; font-weight: bold;'>PRO ⭐⭐⭐</span>", unsafe_allow_html=True)
     else:
         st.sidebar.markdown(f"**Logged in as:** {user_email}")
 
