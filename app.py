@@ -539,7 +539,7 @@ admin_emails_normalized = [e.strip().lower() for e in admin_emails]
 is_admin = user_email in admin_emails_normalized
 
 # Main app (always visible)
-if st.sidebar.button("🏠 Main App", use_container_width=True):
+if st.sidebar.button("🗄️ SQL Transform", use_container_width=True):
     st.session_state["current_page"] = "main"
 
 # Account (always visible)
