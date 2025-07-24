@@ -96,7 +96,7 @@ def show_riptonic_logo():
             </style>
             <div class="logo-container">
                 <a href="mailto:support@riptonic.com" target="_blank">
-                    <img src="data:image/png;base64,{get_image_base64("riptonic_grey.png")}" 
+                    <img src="data:image/png;base64,{get_image_base64("riptonic_grey_no_bg.png")}" 
                     width="150" style="display: block;">
                 </a>
             </div>
