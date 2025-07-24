@@ -275,8 +275,16 @@ def show_logout():
         st.session_state["user"] = None
         st.rerun()
 
-# Add sidebar navigation
+# Add sidebar navigation and user info
 page = st.sidebar.selectbox("Page", ["Main App", "Usage Analytics", "Future Improvements"])
+
+# Show user info with Pro indicator
+if st.session_state["user"]:
+    user_email = st.session_state["user"].email
+    if is_paid:
+        st.sidebar.markdown(f"**Logged in as:** {user_email} <span style='color: gold; font-weight: bold;'>PRO</span>", unsafe_allow_html=True)
+    else:
+        st.sidebar.markdown(f"**Logged in as:** {user_email}")
 
 # Admin emails for analytics access
 admin_emails = ["harterjay@gmail.com"]  # Replace with your email
@@ -444,7 +452,6 @@ if not is_paid:
         st.stop()
 
 if page == "Usage Analytics":
-    st.write("Logged in as:", st.session_state["user"].email)
     user_email = st.session_state["user"].email.strip().lower()
     admin_emails_normalized = [e.strip().lower() for e in admin_emails]
     if user_email in admin_emails_normalized:
