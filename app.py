@@ -286,7 +286,8 @@ def show_analytics():
 
 def show_improvements():
     st.header("Future Improvements")
-    # Improvement submission form
+    
+    # Add new improvement form
     with st.form("add_improvement_form", clear_on_submit=True):
         name = st.text_input("Improvement Name")
         description = st.text_area("Description")
@@ -302,19 +303,46 @@ def show_improvements():
                 st.success("Improvement idea added!")
                 st.rerun()
     
-    # List all improvements with editable table
+    # List all improvements with edit functionality
     res = supabase.table("improvements").select("*").order("date_entered", desc=True).execute()
     df = pd.DataFrame(res.data)
     if not df.empty:
-        # Hide ID field and rename date column
-        df = df.rename(columns={"date_entered": "Date Entered"})
-        display_df = df[["name", "description", "status", "Date Entered"]]
+        st.subheader("Edit Improvements")
         
-        # Use full width table
+        # Create editable form for each improvement
+        for idx, row in df.iterrows():
+            with st.expander(f"Edit: {row['name']}", expanded=False):
+                with st.form(f"edit_form_{row['id']}", clear_on_submit=False):
+                    edited_name = st.text_input("Name", value=row['name'], key=f"name_{row['id']}")
+                    edited_description = st.text_area("Description", value=row['description'], key=f"desc_{row['id']}")
+                    edited_status = st.selectbox("Status", ["pending", "in_progress", "completed"], 
+                                               index=["pending", "in_progress", "completed"].index(row.get('status', 'pending')),
+                                               key=f"status_{row['id']}")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.form_submit_button("Update"):
+                            supabase.table("improvements").update({
+                                "name": edited_name,
+                                "description": edited_description,
+                                "status": edited_status
+                            }).eq("id", row['id']).execute()
+                            st.success("Updated!")
+                            st.rerun()
+                    
+                    with col2:
+                        if st.form_submit_button("Delete", type="secondary"):
+                            supabase.table("improvements").delete().eq("id", row['id']).execute()
+                            st.success("Deleted!")
+                            st.rerun()
+        
+        # Show read-only table for overview
+        st.subheader("Overview")
+        display_df = df.rename(columns={"date_entered": "Date Entered"})
         st.dataframe(
-            display_df,
-            use_container_width=True,  # Full width
-            key="improvements_table"
+            display_df[["name", "description", "status", "Date Entered"]],
+            use_container_width=True,
+            key="improvements_overview"
         )
     else:
         st.info("No improvement ideas yet.")
