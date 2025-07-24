@@ -315,8 +315,15 @@ def show_improvements():
                 with st.form(f"edit_form_{row['id']}", clear_on_submit=False):
                     edited_name = st.text_input("Name", value=row['name'], key=f"name_{row['id']}")
                     edited_description = st.text_area("Description", value=row['description'], key=f"desc_{row['id']}")
-                    edited_status = st.selectbox("Status", ["pending", "in_progress", "completed"], 
-                                               index=["pending", "in_progress", "completed"].index(row.get('status', 'pending')),
+                    # Handle status safely
+                    status_options = ["pending", "in_progress", "completed"]
+                    current_status = row.get('status', 'pending')
+                    if current_status is None or current_status not in status_options:
+                        current_status = 'pending'
+                    status_index = status_options.index(current_status)
+                    
+                    edited_status = st.selectbox("Status", status_options, 
+                                               index=status_index,
                                                key=f"status_{row['id']}")
                     
                     col1, col2 = st.columns(2)
