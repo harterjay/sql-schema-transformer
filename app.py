@@ -80,6 +80,59 @@ def call_claude(prompt: str) -> str:
     response_data = response.json()
     return response_data["content"][0]["text"]
 
+def show_riptonic_logo():
+    """Display Riptonic logo as a clickable link to support email at bottom right."""
+    try:
+        # Use CSS to position logo at bottom right
+        st.markdown(
+            f'''
+            <style>
+            .logo-container {{
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 1000;
+            }}
+            </style>
+            <div class="logo-container">
+                <a href="mailto:support@riptonic.com" target="_blank">
+                    <img src="data:image/png;base64,{get_image_base64("riptonic_grey.png")}" 
+                    width="150" style="display: block;">
+                </a>
+            </div>
+            ''',
+            unsafe_allow_html=True
+        )
+    except Exception as e:
+        # Fallback: just show text link at bottom right
+        st.markdown(
+            f'''
+            <style>
+            .logo-container {{
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 1000;
+            }}
+            </style>
+            <div class="logo-container">
+                <a href="mailto:support@riptonic.com" target="_blank">
+                    <p style="text-align: center; font-size: 12px; color: #666;">Riptonic Support</p>
+                </a>
+            </div>
+            ''',
+            unsafe_allow_html=True
+        )
+
+def get_image_base64(image_path):
+    """Get base64 encoded image for embedding in HTML."""
+    try:
+        import base64
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode()
+    except:
+        return ""
+
 # --- Auth Helpers ---
 if "user" not in st.session_state:
     st.session_state["user"] = None
@@ -133,6 +186,8 @@ def create_checkout_session(user_email):
 
 # --- Update show_login to insert user on signup and fetch status on login ---
 def show_login():
+    show_riptonic_logo()
+    
     if "auth_mode" not in st.session_state:
         st.session_state["auth_mode"] = None
 
@@ -226,6 +281,8 @@ def show_analytics():
     st.write("SQL generations over time:")
     df['date'] = pd.to_datetime(df['timestamp']).dt.date
     st.line_chart(df.groupby('date').size())
+    
+
 
 def show_improvements():
     st.header("Future Improvements")
@@ -251,6 +308,8 @@ def show_improvements():
         st.dataframe(df[["name", "description", "status", "Date Entered"]])
     else:
         st.info("No improvement ideas yet.")
+    
+
 
 # --- Page Routing ---
 # --- After login, enforce freemium limits before showing main app ---
@@ -311,7 +370,24 @@ if "session_id" in params and "email" in params:
         st.error(f"Error verifying payment: {e}")
 
 # --- Streamlit UI ---
-st.set_page_config(page_title="SQL Schema Transformer", layout="centered")
+st.set_page_config(
+    page_title="SQL Schema Transformer", 
+    layout="centered",
+    initial_sidebar_state="expanded"
+)
+
+# Hide Streamlit menu and footer
+st.markdown("""
+<style>
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+</style>
+""", unsafe_allow_html=True)
+
+# Show Riptonic logo at bottom right of all pages
+show_riptonic_logo()
+
 st.title("SQL Schema Transformer")
 st.write("Upload your source and target schema Excel files. The app will generate a SQL SELECT statement to transform and join the source schemas to produce the target schema (formatted for Microsoft SQL Server).\n\n**Excel files must have columns:** `table`, `column`, `type`, `description`. You may upload multiple source files (e.g., transactional, master data, etc.). Optionally, you can upload a Join Key table (Excel) with columns: `left_table`, `left_field`, `right_table`, `right_field` to specify join relationships.")
 
@@ -403,3 +479,4 @@ Write ONLY the SQL SELECT statement (no explanation, no comments, no description
             }).execute()
         except Exception as e:
             st.error(f"Error: {e}")
+
