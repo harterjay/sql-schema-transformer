@@ -276,7 +276,7 @@ def show_logout():
         st.rerun()
 
 # Add sidebar navigation
-page = st.sidebar.selectbox("Page", ["Main App", "Usage Analytics", "Future Improvements"])
+page = st.sidebar.selectbox("Page", ["Main App", "Usage Analytics", "Future Improvements", "Account"])
 
 # Admin emails for analytics access
 admin_emails = ["harterjay@gmail.com"]  # Replace with your email
@@ -317,6 +317,100 @@ def show_analytics():
     st.line_chart(df.groupby('date').size())
     
 
+
+def show_account():
+    # Set page config for account page
+    st.set_page_config(
+        page_title="SQL Schema Transformer - Account", 
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # Hide GitHub link and other elements
+    st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stDeployButton {display: none;}
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.header("Account Settings")
+    
+    user = st.session_state["user"]
+    user_email = user.email
+    
+    # Account Information
+    st.subheader("Account Information")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.write(f"**Email:** {user_email}")
+        st.write(f"**Member since:** {signup_date.strftime('%B %d, %Y')}")
+    
+    with col2:
+        if is_paid:
+            st.markdown(f"**Tier:** <span style='color: black; font-weight: bold;'>PRO ⭐⭐⭐</span>", unsafe_allow_html=True)
+            # Get next billing date (approximate - monthly subscription)
+            next_billing = signup_date + pd.DateOffset(months=1)
+            st.write(f"**Next billing:** {next_billing.strftime('%B %d, %Y')}")
+        else:
+            st.write("**Tier:** Free")
+            st.write(f"**Trial ends:** {(signup_date + pd.DateOffset(days=10)).strftime('%B %d, %Y')}")
+    
+    st.markdown("---")
+    
+    # Subscription Management
+    st.subheader("Subscription Management")
+    
+    if is_paid:
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Manage Subscription", type="secondary"):
+                st.info("Contact support@riptonic.com to manage your subscription.")
+        
+        with col2:
+            if st.button("Cancel Subscription", type="secondary"):
+                st.warning("Contact support@riptonic.com to cancel your subscription.")
+    else:
+        st.write("Upgrade to Pro for unlimited access!")
+        checkout_url = create_checkout_session(user_email)
+        st.link_button("Upgrade to Pro", checkout_url)
+    
+    st.markdown("---")
+    
+    # Password Change
+    st.subheader("Change Password")
+    with st.form("change_password_form"):
+        current_password = st.text_input("Current Password", type="password")
+        new_password = st.text_input("New Password", type="password")
+        confirm_password = st.text_input("Confirm New Password", type="password")
+        submitted = st.form_submit_button("Change Password")
+        
+        if submitted:
+            if not current_password or not new_password or not confirm_password:
+                st.error("Please fill in all fields.")
+            elif new_password != confirm_password:
+                st.error("New passwords do not match.")
+            else:
+                try:
+                    # Update password in Supabase
+                    supabase.auth.update_user({"password": new_password})
+                    st.success("Password updated successfully!")
+                except Exception as e:
+                    st.error(f"Error updating password: {e}")
+    
+    st.markdown("---")
+    
+    # Usage Statistics
+    st.subheader("Usage Statistics")
+    generations_today = get_sql_generations_today(user)
+    if is_paid:
+        st.write(f"**SQL generations today:** {generations_today} (unlimited)")
+    else:
+        st.write(f"**SQL generations today:** {generations_today}/2")
+        trial_days_left = get_trial_days_left(signup_date)
+        st.write(f"**Trial days remaining:** {trial_days_left}")
 
 def show_improvements():
     # Set page config for improvements page
@@ -467,6 +561,10 @@ if page == "Future Improvements":
         show_improvements()
     else:
         st.warning("You do not have access to this page.")
+    st.stop()
+
+if page == "Account":
+    show_account()
     st.stop()
 
 # After login, add this to handle Stripe payment success
