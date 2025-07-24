@@ -186,6 +186,23 @@ def create_checkout_session(user_email):
 
 # --- Update show_login to insert user on signup and fetch status on login ---
 def show_login():
+    # Set page config for login page
+    st.set_page_config(
+        page_title="SQL Schema Transformer - Login", 
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # Hide GitHub link and other elements
+    st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stDeployButton {display: none;}
+    </style>
+    """, unsafe_allow_html=True)
+    
     show_riptonic_logo()
     
     if "auth_mode" not in st.session_state:
@@ -270,6 +287,23 @@ def get_usage_stats():
     return df
 
 def show_analytics():
+    # Set page config for analytics page
+    st.set_page_config(
+        page_title="SQL Schema Transformer - Analytics", 
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # Hide GitHub link and other elements
+    st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stDeployButton {display: none;}
+    </style>
+    """, unsafe_allow_html=True)
+    
     st.header("Usage Analytics")
     df = get_usage_stats()
     if df.empty:
@@ -285,6 +319,23 @@ def show_analytics():
 
 
 def show_improvements():
+    # Set page config for improvements page
+    st.set_page_config(
+        page_title="SQL Schema Transformer - Improvements", 
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # Hide GitHub link and other elements
+    st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stDeployButton {display: none;}
+    </style>
+    """, unsafe_allow_html=True)
+    
     st.header("Future Improvements")
     
     # Add new improvement form
