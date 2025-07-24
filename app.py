@@ -573,7 +573,7 @@ if not is_paid:
         st.error("You have reached your daily limit of 2 SQL generations. Please try again tomorrow or upgrade for unlimited access.")
         st.stop()
 
-if page == "Usage Analytics":
+if st.session_state["current_page"] == "analytics":
     user_email = st.session_state["user"].email.strip().lower()
     admin_emails_normalized = [e.strip().lower() for e in admin_emails]
     if user_email in admin_emails_normalized:
@@ -582,7 +582,7 @@ if page == "Usage Analytics":
         st.warning("You do not have access to this page.")
     st.stop()
 
-if page == "Future Improvements":
+if st.session_state["current_page"] == "improvements":
     user_email = st.session_state["user"].email.strip().lower()
     admin_emails_normalized = [e.strip().lower() for e in admin_emails]
     if user_email in admin_emails_normalized:
@@ -591,7 +591,7 @@ if page == "Future Improvements":
         st.warning("You do not have access to this page.")
     st.stop()
 
-if page == "Account":
+if st.session_state["current_page"] == "account":
     show_account()
     st.stop()
 
