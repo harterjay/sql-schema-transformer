@@ -303,46 +303,10 @@ def show_improvements():
                 st.success("Improvement idea added!")
                 st.rerun()
     
-    # List all improvements with edit functionality
+    # List all improvements
     res = supabase.table("improvements").select("*").order("date_entered", desc=True).execute()
     df = pd.DataFrame(res.data)
     if not df.empty:
-        st.subheader("Edit Improvements")
-        
-        # Create editable form for each improvement
-        for idx, row in df.iterrows():
-            with st.expander(f"Edit: {row['name']}", expanded=False):
-                with st.form(f"edit_form_{row['id']}", clear_on_submit=False):
-                    edited_name = st.text_input("Name", value=row['name'], key=f"name_{row['id']}")
-                    edited_description = st.text_area("Description", value=row['description'], key=f"desc_{row['id']}")
-                    # Handle status safely
-                    status_options = ["pending", "in_progress", "completed"]
-                    current_status = row.get('status', 'pending')
-                    if current_status is None or current_status not in status_options:
-                        current_status = 'pending'
-                    status_index = status_options.index(current_status)
-                    
-                    edited_status = st.selectbox("Status", status_options, 
-                                               index=status_index,
-                                               key=f"status_{row['id']}")
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.form_submit_button("Update"):
-                            supabase.table("improvements").update({
-                                "name": edited_name,
-                                "description": edited_description,
-                                "status": edited_status
-                            }).eq("id", row['id']).execute()
-                            st.success("Updated!")
-                            st.rerun()
-                    
-                    with col2:
-                        if st.form_submit_button("Delete", type="secondary"):
-                            supabase.table("improvements").delete().eq("id", row['id']).execute()
-                            st.success("Deleted!")
-                            st.rerun()
-        
         # Show read-only table for overview
         st.subheader("Overview")
         display_df = df.rename(columns={"date_entered": "Date Entered"})
@@ -351,6 +315,53 @@ def show_improvements():
             use_container_width=True,
             key="improvements_overview"
         )
+        
+        # Edit button to toggle edit mode
+        if st.button("Edit Improvements", type="secondary"):
+            st.session_state["show_edit_mode"] = True
+        
+        # Show edit section only when button is clicked
+        if st.session_state.get("show_edit_mode", False):
+            st.subheader("Edit Improvements")
+            
+            # Create editable form for each improvement
+            for idx, row in df.iterrows():
+                with st.expander(f"Edit: {row['name']}", expanded=False):
+                    with st.form(f"edit_form_{row['id']}", clear_on_submit=False):
+                        edited_name = st.text_input("Name", value=row['name'], key=f"name_{row['id']}")
+                        edited_description = st.text_area("Description", value=row['description'], key=f"desc_{row['id']}")
+                        # Handle status safely
+                        status_options = ["pending", "in_progress", "completed"]
+                        current_status = row.get('status', 'pending')
+                        if current_status is None or current_status not in status_options:
+                            current_status = 'pending'
+                        status_index = status_options.index(current_status)
+                        
+                        edited_status = st.selectbox("Status", status_options, 
+                                                   index=status_index,
+                                                   key=f"status_{row['id']}")
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.form_submit_button("Update"):
+                                supabase.table("improvements").update({
+                                    "name": edited_name,
+                                    "description": edited_description,
+                                    "status": edited_status
+                                }).eq("id", row['id']).execute()
+                                st.success("Updated!")
+                                st.rerun()
+                        
+                        with col2:
+                            if st.form_submit_button("Delete", type="secondary"):
+                                supabase.table("improvements").delete().eq("id", row['id']).execute()
+                                st.success("Deleted!")
+                                st.rerun()
+            
+            # Button to hide edit mode
+            if st.button("Hide Edit Mode", type="primary"):
+                st.session_state["show_edit_mode"] = False
+                st.rerun()
     else:
         st.info("No improvement ideas yet.")
     
