@@ -275,16 +275,8 @@ def show_logout():
         st.session_state["user"] = None
         st.rerun()
 
-# Add sidebar navigation and user info
+# Add sidebar navigation
 page = st.sidebar.selectbox("Page", ["Main App", "Usage Analytics", "Future Improvements"])
-
-# Show user info with Pro indicator
-if st.session_state["user"]:
-    user_email = st.session_state["user"].email
-    if is_paid:
-        st.sidebar.markdown(f"**Logged in as:** {user_email} <span style='color: gold; font-weight: bold;'>PRO</span>", unsafe_allow_html=True)
-    else:
-        st.sidebar.markdown(f"**Logged in as:** {user_email}")
 
 # Admin emails for analytics access
 admin_emails = ["harterjay@gmail.com"]  # Replace with your email
@@ -438,6 +430,14 @@ is_paid = st.session_state.get("is_paid", False)
 signup_date = st.session_state.get("signup_date", pd.Timestamp.now())
 trial_days_left = get_trial_days_left(signup_date)
 generations_today = get_sql_generations_today(st.session_state["user"])
+
+# Show user info with Pro indicator in sidebar
+if st.session_state["user"]:
+    user_email = st.session_state["user"].email
+    if is_paid:
+        st.sidebar.markdown(f"**Logged in as:** {user_email} <span style='color: gold; font-weight: bold;'>PRO</span>", unsafe_allow_html=True)
+    else:
+        st.sidebar.markdown(f"**Logged in as:** {user_email}")
 
 # Show usage/trial info and upgrade button for free users
 if not is_paid:
