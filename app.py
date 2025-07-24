@@ -278,37 +278,6 @@ def show_logout():
 # Admin emails for analytics access
 admin_emails = ["harterjay@gmail.com"]  # Replace with your email
 
-# Add sidebar navigation
-st.sidebar.title("Navigation")
-
-# Check if user is admin
-user_email = st.session_state["user"].email.strip().lower()
-admin_emails_normalized = [e.strip().lower() for e in admin_emails]
-is_admin = user_email in admin_emails_normalized
-
-# Main app (always visible)
-if st.sidebar.button("🏠 Main App", use_container_width=True):
-    st.session_state["current_page"] = "main"
-
-# Account (always visible)
-if st.sidebar.button("👤 Account", use_container_width=True):
-    st.session_state["current_page"] = "account"
-
-# Admin tools (only for admins)
-if is_admin:
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("**Admin Tools**")
-    
-    if st.sidebar.button("📊 Usage Analytics", use_container_width=True):
-        st.session_state["current_page"] = "analytics"
-    
-    if st.sidebar.button("💡 Future Improvements", use_container_width=True):
-        st.session_state["current_page"] = "improvements"
-
-# Initialize current page if not set
-if "current_page" not in st.session_state:
-    st.session_state["current_page"] = "main"
-
 def get_usage_stats():
     res = supabase.table("usage_logs").select("*").execute()
     df = pd.DataFrame(res.data)
@@ -560,6 +529,37 @@ if st.session_state["user"]:
         st.sidebar.markdown(f"**Logged in as:** {user_email} <span style='color: black; font-weight: bold;'>PRO</span> ⭐⭐⭐", unsafe_allow_html=True)
     else:
         st.sidebar.markdown(f"**Logged in as:** {user_email}")
+
+# Add sidebar navigation
+st.sidebar.title("Navigation")
+
+# Check if user is admin
+user_email = st.session_state["user"].email.strip().lower()
+admin_emails_normalized = [e.strip().lower() for e in admin_emails]
+is_admin = user_email in admin_emails_normalized
+
+# Main app (always visible)
+if st.sidebar.button("🏠 Main App", use_container_width=True):
+    st.session_state["current_page"] = "main"
+
+# Account (always visible)
+if st.sidebar.button("👤 Account", use_container_width=True):
+    st.session_state["current_page"] = "account"
+
+# Admin tools (only for admins)
+if is_admin:
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("**Admin Tools**")
+    
+    if st.sidebar.button("📊 Usage Analytics", use_container_width=True):
+        st.session_state["current_page"] = "analytics"
+    
+    if st.sidebar.button("💡 Future Improvements", use_container_width=True):
+        st.session_state["current_page"] = "improvements"
+
+# Initialize current page if not set
+if "current_page" not in st.session_state:
+    st.session_state["current_page"] = "main"
 
 # Show usage/trial info and upgrade button for free users
 if not is_paid:
