@@ -137,6 +137,54 @@ def get_image_base64(image_path):
 if "user" not in st.session_state:
     st.session_state["user"] = None
 
+# Store session data for persistence
+if "session_data" not in st.session_state:
+    st.session_state["session_data"] = None
+
+# Check for existing session on page load
+def check_existing_session():
+    """Check if user has an existing session and restore it."""
+    try:
+        # First try to restore from stored session data
+        if st.session_state.get("session_data"):
+            try:
+                # Set the session using stored data
+                supabase.auth.set_session(
+                    st.session_state["session_data"]["access_token"],
+                    st.session_state["session_data"]["refresh_token"]
+                )
+                session = supabase.auth.get_session()
+                if session and session.user:
+                    st.session_state["user"] = session.user
+                    fetch_user_status(session.user)
+                    return True
+            except Exception as e:
+                # Session might be expired, clear it
+                st.session_state["session_data"] = None
+        
+        # Fallback to regular session check
+        session = supabase.auth.get_session()
+        if session and session.user:
+            st.session_state["user"] = session.user
+            # Store session data for future use
+            if hasattr(session, 'access_token') and hasattr(session, 'refresh_token'):
+                st.session_state["session_data"] = {
+                    "access_token": session.access_token,
+                    "refresh_token": session.refresh_token
+                }
+            fetch_user_status(session.user)
+            return True
+    except Exception as e:
+        # Session might be expired or invalid
+        pass
+    return False
+
+# Try to restore session on page load
+if not st.session_state["user"]:
+    restored = check_existing_session()
+    if restored:
+        st.rerun()  # Rerun to update the UI with restored session
+
 # --- Freemium Logic Helpers ---
 def insert_user_if_new(user):
     # Insert user into 'users' table if not exists
@@ -275,6 +323,12 @@ def show_login():
                         res = supabase.auth.sign_in_with_password({"email": email, "password": password})
                         if hasattr(res, 'user') and res.user:
                             st.session_state["user"] = res.user
+                            # Store session data for persistence
+                            if hasattr(res, 'session') and res.session:
+                                st.session_state["session_data"] = {
+                                    "access_token": res.session.access_token,
+                                    "refresh_token": res.session.refresh_token
+                                }
                             fetch_user_status(res.user)
                             st.success("✅ Login successful!")
                             st.session_state["auth_mode"] = None
@@ -324,7 +378,13 @@ def show_login():
 
 def show_logout():
     if st.button("Logout"):
+        try:
+            # Sign out from Supabase
+            supabase.auth.sign_out()
+        except Exception as e:
+            pass  # Ignore errors during logout
         st.session_state["user"] = None
+        st.session_state["session_data"] = None
         st.rerun()
 
 # Admin emails for analytics access
