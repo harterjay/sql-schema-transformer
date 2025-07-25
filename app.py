@@ -189,8 +189,8 @@ def show_login():
     # Set page config for login page
     st.set_page_config(
         page_title="SQL Schema Transformer - Login", 
-        layout="wide",
-        initial_sidebar_state="expanded"
+        layout="centered",
+        initial_sidebar_state="collapsed"
     )
     
     # Hide GitHub link and other elements
@@ -200,6 +200,29 @@ def show_login():
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .stDeployButton {display: none;}
+    
+    /* Center the main content */
+    .main .block-container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding-top: 2rem;
+    }
+    
+    /* Style the auth forms */
+    .stForm {
+        background-color: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border: 1px solid #e9ecef;
+    }
+    
+    /* Center the title */
+    h1 {
+        text-align: center;
+        color: #2c3e50;
+        margin-bottom: 2rem;
+    }
     </style>
     """, unsafe_allow_html=True)
     
@@ -209,66 +232,95 @@ def show_login():
         st.session_state["auth_mode"] = None
 
     if st.session_state["auth_mode"] is None:
-        st.title("SQL Schema Transformer")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Login"):
-                st.session_state["auth_mode"] = "login"
-                st.rerun()
+        st.markdown("""
+        <div style="text-align: center; padding: 2rem 0;">
+            <h1 style="color: #2c3e50; margin-bottom: 1rem;">SQL Schema Transformer</h1>
+            <p style="color: #6c757d; margin-bottom: 2rem;">Sign in to access your account</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Create a centered container for the buttons (no card)
+        col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            if st.button("Sign Up"):
-                st.session_state["auth_mode"] = "signup"
-                st.rerun()
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if st.button("🔐 Login", use_container_width=True):
+                    st.session_state["auth_mode"] = "login"
+                    st.rerun()
+            with col_b:
+                if st.button("📝 Sign Up", use_container_width=True):
+                    st.session_state["auth_mode"] = "signup"
+                    st.rerun()
         st.stop()
 
     if st.session_state["auth_mode"] == "login":
-        st.title("SQL Schema Transformer")
-        with st.form("login_form"):
-            email = st.text_input("Email")
-            password = st.text_input("Password", type="password")
-            login = st.form_submit_button("Login")
-            if login:
-                if not email or not password:
-                    st.error("Please enter both email and password.")
-                else:
-                    res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                    if hasattr(res, 'user') and res.user:
-                        st.session_state["user"] = res.user
-                        fetch_user_status(res.user)
-                        st.success("Logged in!")
-                        st.session_state["auth_mode"] = None
-                        st.rerun()
+        st.markdown("""
+        <div style="text-align: center; padding: 2rem 0;">
+            <h1 style="color: #2c3e50; margin-bottom: 1rem;">Welcome Back</h1>
+            <p style="color: #6c757d; margin-bottom: 2rem;">Sign in to your account</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Center the login form
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            with st.form("login_form"):
+                email = st.text_input("📧 Email", placeholder="Enter your email")
+                password = st.text_input("🔒 Password", type="password", placeholder="Enter your password")
+                login = st.form_submit_button("🔐 Login", use_container_width=True)
+                if login:
+                    if not email or not password:
+                        st.error("Please enter both email and password.")
                     else:
-                        st.error("Login failed. Please check your credentials.")
-        if st.button("Back"):
-            st.session_state["auth_mode"] = None
-            st.rerun()
+                        res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                        if hasattr(res, 'user') and res.user:
+                            st.session_state["user"] = res.user
+                            fetch_user_status(res.user)
+                            st.success("✅ Login successful!")
+                            st.session_state["auth_mode"] = None
+                            st.rerun()
+                        else:
+                            st.error("❌ Login failed. Please check your credentials.")
+            
+            if st.button("← Back", use_container_width=True):
+                st.session_state["auth_mode"] = None
+                st.rerun()
 
     if st.session_state["auth_mode"] == "signup":
-        st.title("SQL Schema Transformer")
-        with st.form("signup_form"):
-            email = st.text_input("Email")
-            password = st.text_input("Password", type="password")
-            confirm_password = st.text_input("Confirm Password", type="password")
-            signup = st.form_submit_button("Sign Up")
-            if signup:
-                if not email or not password or not confirm_password:
-                    st.error("Please fill in all fields.")
-                elif password != confirm_password:
-                    st.error("Passwords do not match.")
-                else:
-                    res = supabase.auth.sign_up({"email": email, "password": password})
-                    if hasattr(res, 'user') and res.user:
-                        insert_user_if_new(res.user)
-                        fetch_user_status(res.user)
-                        st.success("Check your email to confirm your account.")
-                        st.session_state["auth_mode"] = "login"
-                        st.rerun()
+        st.markdown("""
+        <div style="text-align: center; padding: 2rem 0;">
+            <h1 style="color: #2c3e50; margin-bottom: 1rem;">Create Account</h1>
+            <p style="color: #6c757d; margin-bottom: 2rem;">Join SQL Schema Transformer</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Center the signup form
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            with st.form("signup_form"):
+                email = st.text_input("📧 Email", placeholder="Enter your email")
+                password = st.text_input("🔒 Password", type="password", placeholder="Create a password")
+                confirm_password = st.text_input("🔒 Confirm Password", type="password", placeholder="Confirm your password")
+                signup = st.form_submit_button("📝 Sign Up", use_container_width=True)
+                if signup:
+                    if not email or not password or not confirm_password:
+                        st.error("Please fill in all fields.")
+                    elif password != confirm_password:
+                        st.error("Passwords do not match.")
                     else:
-                        st.error("Signup failed. Email may already be registered.")
-        if st.button("Back"):
-            st.session_state["auth_mode"] = None
-            st.rerun()
+                        res = supabase.auth.sign_up({"email": email, "password": password})
+                        if hasattr(res, 'user') and res.user:
+                            insert_user_if_new(res.user)
+                            fetch_user_status(res.user)
+                            st.success("✅ Account created! Please check your email to confirm your account.")
+                            st.session_state["auth_mode"] = "login"
+                            st.rerun()
+                        else:
+                            st.error("❌ Signup failed. Email may already be registered.")
+            
+            if st.button("← Back", use_container_width=True):
+                st.session_state["auth_mode"] = None
+                st.rerun()
 
 def show_logout():
     if st.button("Logout"):
@@ -522,16 +574,30 @@ signup_date = st.session_state.get("signup_date", pd.Timestamp.now())
 trial_days_left = get_trial_days_left(signup_date)
 generations_today = get_sql_generations_today(st.session_state["user"])
 
+# Enhanced sidebar styling
+st.sidebar.markdown("""
+<div style="background-color: #1f77b4; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+    <h3 style="color: white; margin: 0; text-align: center;">Navigation</h3>
+</div>
+""", unsafe_allow_html=True)
+
 # Show user info with Pro indicator in sidebar
 if st.session_state["user"]:
     user_email = st.session_state["user"].email
     if is_paid:
-        st.sidebar.markdown(f"**Logged in as:** {user_email} <span style='color: black; font-weight: bold;'>PRO</span> ⭐⭐⭐", unsafe_allow_html=True)
+        st.sidebar.markdown(f"""
+        <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem;">
+            <p style="margin: 0; color: #856404; font-weight: 600;">👤 {user_email}</p>
+            <p style="margin: 0.25rem 0 0 0; color: #856404; font-size: 0.9rem;">⭐ PRO Member</p>
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        st.sidebar.markdown(f"**Logged in as:** {user_email}")
-
-# Add sidebar navigation
-st.sidebar.title("Navigation")
+        st.sidebar.markdown(f"""
+        <div style="background-color: #e3f2fd; border: 1px solid #bbdefb; border-radius: 8px; padding: 0.75rem; margin-bottom: 1rem;">
+            <p style="margin: 0; color: #1976d2; font-weight: 600;">👤 {user_email}</p>
+            <p style="margin: 0.25rem 0 0 0; color: #1976d2; font-size: 0.9rem;">Free Account</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 # Check if user is admin
 user_email = st.session_state["user"].email.strip().lower()
@@ -549,7 +615,11 @@ if st.sidebar.button("👤 Account", use_container_width=True):
 # Admin tools (only for admins)
 if is_admin:
     st.sidebar.markdown("---")
-    st.sidebar.markdown("**Admin Tools**")
+    st.sidebar.markdown("""
+    <div style="background-color: #f8f9fa; padding: 0.5rem; border-radius: 6px; margin: 0.5rem 0;">
+        <p style="margin: 0; color: #6c757d; font-weight: 600; font-size: 0.9rem;">🔧 Admin Tools</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     if st.sidebar.button("📊 Usage Analytics", use_container_width=True):
         st.session_state["current_page"] = "analytics"
@@ -616,41 +686,227 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Hide GitHub link in top right
+# Modern CSS styling for professional look
 st.markdown("""
 <style>
+/* Hide default Streamlit elements */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
 .stDeployButton {display: none;}
+
+/* Modern color scheme and typography */
+:root {
+    --primary-color: #1f77b4;
+    --secondary-color: #ff7f0e;
+    --success-color: #2ca02c;
+    --warning-color: #d62728;
+    --text-color: #2c3e50;
+    --background-color: #f8f9fa;
+    --card-background: #ffffff;
+    --border-color: #e9ecef;
+}
+
+/* Global styles */
+.stApp {
+    background-color: var(--background-color);
+}
+
+/* Enhanced sidebar styling */
+.sidebar .sidebar-content {
+    background-color: var(--card-background);
+    border-right: 1px solid var(--border-color);
+}
+
+/* Modern button styling */
+.stButton > button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.stButton > button:hover {
+    background-color: #1565c0;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* Enhanced form styling */
+.stForm {
+    background-color: var(--card-background);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    border: 1px solid var(--border-color);
+}
+
+/* File uploader styling */
+.stFileUploader {
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    transition: border-color 0.3s ease;
+}
+
+.stFileUploader:hover {
+    border-color: var(--primary-color);
+}
+
+/* Enhanced text styling */
+h1, h2, h3 {
+    color: var(--text-color);
+    font-weight: 700;
+}
+
+/* Success/Error message styling */
+.stAlert {
+    border-radius: 8px;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Code block styling */
+.stCodeBlock {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+/* Radio button styling */
+.stRadio > label {
+    background-color: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 4px 0;
+    transition: all 0.3s ease;
+}
+
+.stRadio > label:hover {
+    border-color: var(--primary-color);
+    background-color: #f0f8ff;
+}
+
+/* Text input styling */
+.stTextInput > div > div > input {
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    padding: 12px 16px;
+    transition: border-color 0.3s ease;
+}
+
+.stTextInput > div > div > input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(31, 119, 180, 0.2);
+}
+
+/* Sidebar button enhancements */
+.sidebar .stButton > button {
+    width: 100%;
+    margin: 4px 0;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+/* Logo container enhancement */
+.logo-container {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    padding: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
 </style>
 """, unsafe_allow_html=True)
 
 # Show Riptonic logo at bottom right of all pages
 show_riptonic_logo()
 
-st.title("SQL Schema Transformer")
-st.write("Upload your source and target schema Excel files. The app will generate a SQL SELECT statement to transform and join the source schemas to produce the target schema (formatted for Microsoft SQL Server).\n\n**Excel files must have columns:** `table`, `column`, `type`, `description`. You may upload multiple source files (e.g., transactional, master data, etc.). Optionally, you can upload a Join Key table (Excel) with columns: `left_table`, `left_field`, `right_table`, `right_field` to specify join relationships.")
+# Header with modern styling
+st.markdown("""
+<div style="text-align: center; padding: 2rem 0; background-color: #1f77b4; border-radius: 12px; margin-bottom: 2rem;">
+    <h1 style="color: white; margin: 0; font-size: 2.5rem; font-weight: 700;">SQL Schema Transformer</h1>
+    <p style="color: rgba(255,255,255,0.9); margin: 0.5rem 0 0 0; font-size: 1.1rem;">Transform your database schemas with AI-powered SQL generation</p>
+</div>
+""", unsafe_allow_html=True)
 
-# Place these before the form
+# Main description with better formatting
+st.markdown("""
+<div style="background-color: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 2rem;">
+    <h3 style="color: #2c3e50; margin-top: 0;">📋 How it works</h3>
+    <p style="color: #555; line-height: 1.6; margin-bottom: 1rem;">
+        Upload your source and target schema Excel files. The app will generate a SQL SELECT statement to transform and join the source schemas to produce the target schema (formatted for Microsoft SQL Server).
+    </p>
+    <div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px; border-left: 4px solid #1f77b4;">
+        <p style="margin: 0; color: #2c3e50; font-weight: 600;">📄 Required Excel columns:</p>
+        <p style="margin: 0.5rem 0 0 0; color: #555;"><code>table</code>, <code>column</code>, <code>type</code>, <code>description</code></p>
+    </div>
+    <p style="color: #555; margin-top: 1rem; margin-bottom: 0;">
+        You may upload multiple source files (e.g., transactional, master data, etc.). Optionally, you can upload a Join Key table (Excel) with columns: <code>left_table</code>, <code>left_field</code>, <code>right_table</code>, <code>right_field</code> to specify join relationships.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# Enhanced form section - very compact
+st.markdown("""
+<div style="background-color: white; padding: .5rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: .5rem;">
+    <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 0.1rem;">⚙️ Configuration</h3>
+""", unsafe_allow_html=True)
+
+# Unmapped fields option with better styling
+st.markdown("**🔧 Unmapped Fields Handling**")
 unmapped_option = st.radio(
     "What should the SQL output for unmapped fields?",
-    ("Null", "NO_VALUE", "Custom value")
+    ("Null", "NO_VALUE", "Custom value"),
+    help="Choose how to handle target fields that don't have a corresponding source field"
 )
 custom_value = ""
 if unmapped_option == "Custom value":
-    custom_value = st.text_input("Enter custom value (max 10 characters):", max_chars=10)
+    custom_value = st.text_input("Enter custom value (max 10 characters):", max_chars=10, help="This value will be used for all unmapped fields")
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+# File upload section with enhanced styling - very compact
+st.markdown("""
+<div style="background-color: white; padding: 1rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 1rem;">
+    <h3 style="color: #2c3e50; margin-top: 0; margin-bottom: 0.5rem;">📁 File Upload</h3>
+""", unsafe_allow_html=True)
 
 with st.form("schema_form"):
-    # Enforce source file limit for free users
-    if not is_paid:
-        st.caption("Free users can only upload 1 source file. Upgrade for more.")
-        source_files = st.file_uploader("Source schema Excel files (1 file for free users)", type=["xlsx"], accept_multiple_files=False)
-    else:
-        source_files = st.file_uploader("Source schema Excel files (you can select multiple)", type=["xlsx"], accept_multiple_files=True)
-    target_file = st.file_uploader("Target schema Excel file", type=["xlsx"])
-    join_key_file = st.file_uploader("(Optional) Join Key table (Excel, columns: left_table, left_field, right_table, right_field)", type=["xlsx"])
-    submitted = st.form_submit_button("Generate SQL")
+    # Create columns for better layout
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**📊 Source Schemas**")
+        # Enforce source file limit for free users
+        if not is_paid:
+            st.info("💡 Free users can only upload 1 source file. Upgrade for unlimited access!")
+            source_files = st.file_uploader("Source schema Excel files (1 file for free users)", type=["xlsx"], accept_multiple_files=False, help="Upload your source schema Excel files")
+        else:
+            source_files = st.file_uploader("Source schema Excel files (you can select multiple)", type=["xlsx"], accept_multiple_files=True, help="Upload your source schema Excel files")
+    
+    with col2:
+        st.markdown("**🎯 Target Schema**")
+        target_file = st.file_uploader("Target schema Excel file", type=["xlsx"], help="Upload your target schema Excel file")
+    
+    st.markdown("**🔗 Join Keys (Optional)**")
+    join_key_file = st.file_uploader("Join Key table (Excel, columns: left_table, left_field, right_table, right_field)", type=["xlsx"], help="Specify join relationships between tables")
+    
+    # Enhanced submit button
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        submitted = st.form_submit_button("🚀 Generate SQL", use_container_width=True)
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 if submitted:
     if not source_files:
@@ -698,9 +954,19 @@ if submitted:
             prompt += f"\n{unmapped_instruction}\n"
             prompt += """
 Write ONLY the SQL SELECT statement (no explanation, no comments, no description) that transforms and joins the appropriate source tables to produce the target schema. Use field names and descriptions to determine which source table/column to use for each target field. Format the SQL as a valid Microsoft SQL Server (T-SQL) script, using proper indentation, line breaks, and JOINs as needed. Do not include any explanation or commentary—output only the SQL code."""
-            with st.spinner("Generating SQL with Claude..."):
+            with st.spinner("🤖 Generating SQL with Claude..."):
                 sql = call_claude(prompt)
-            st.success("SQL generated!")
+            
+            # Enhanced results display
+            st.markdown("""
+            <div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                <h4 style="color: #2c3e50; margin: 0 0 0.5rem 0;">✅ SQL Generated Successfully!</h4>
+                <p style="color: #555; margin: 0;">Your SQL transformation query is ready below.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Enhanced code block
+            st.markdown("**📋 Generated SQL Query:**")
             st.code(sql, language="sql")
             # After successful SQL generation
             user = st.session_state["user"]
