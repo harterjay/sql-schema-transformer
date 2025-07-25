@@ -90,7 +90,7 @@ def show_riptonic_logo():
             .logo-container {{
                 position: fixed;
                 bottom: 20px;
-                right: 20px;
+                left: 20px;
                 z-index: 1000;
             }}
             </style>
@@ -111,7 +111,7 @@ def show_riptonic_logo():
             .logo-container {{
                 position: fixed;
                 bottom: 20px;
-                right: 20px;
+                left: 20px;
                 z-index: 1000;
             }}
             </style>
